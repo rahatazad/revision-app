@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Revision lists</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Newsreader:opsz,wght@6..72,400;6..72,600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #eaf0f1;
+    --surface: #f8fbfb;
+    --ink: #10252b;
+    --muted: #5a7279;
+    --line: #c5d3d6;
+    --accent: #0e5a66;
+    --accent-ink: #ffffff;
+    --danger: #9b2c2c;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1a1e;
+      --surface: #14262b;
+      --ink: #e4eef0;
+      --muted: #93abb1;
+      --line: #2a4249;
+      --accent: #5cb8c6;
+      --accent-ink: #0d1a1e;
+      --danger: #f08a8a;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); }
+  body {
+    margin: 0;
+    color: var(--ink);
+    font: 18px/1.55 "Newsreader", Georgia, "Times New Roman", serif;
+  }
+  .wrap { max-width: 40rem; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+  h1 { font-size: 1.1rem; font-weight: 600; margin: 0 0 1rem; color: var(--muted); }
+  button, input, select {
+    font: inherit; color: inherit;
+  }
+  button { cursor: pointer; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  /* top-level views */
+  .views { display: flex; gap: 1.75rem; border-bottom: 1px solid var(--line); margin-bottom: 1.5rem; }
+  .view-btn {
+    background: none; border: 0; border-bottom: 3px solid transparent; margin-bottom: -1px;
+    padding: .4rem 0; color: var(--muted); font-weight: 600;
+  }
+  .view-btn[aria-current="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+
+  /* list tabs */
+  .tabs { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 2rem; }
+  .tabs:empty { display: none; }
+  .tab {
+    background: transparent; border: 1px solid var(--line); border-radius: 999px;
+    padding: .25rem .9rem; color: var(--muted);
+  }
+  .tab[aria-current="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+  .tab.new { border-style: dashed; }
+
+  /* list header */
+  .head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+  .head h2 { font-size: 2rem; line-height: 1.15; margin: 0; font-weight: 600; }
+  .count { color: var(--muted); margin: .25rem 0 1.5rem; }
+  .linkbtn { background: none; border: 0; padding: .25rem 0; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+  .linkbtn.danger:hover { color: var(--danger); }
+
+  /* add box */
+  .add { position: relative; margin-bottom: 1.5rem; }
+  .add form { display: flex; gap: .5rem; }
+  .add input[type="text"] {
+    flex: 1; min-width: 0; padding: .6rem .8rem; background: var(--surface);
+    border: 1px solid var(--line); border-radius: 6px;
+  }
+  .btn {
+    background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 6px;
+    padding: .6rem 1.1rem; font-weight: 600;
+  }
+  .suggest {
+    list-style: none; margin: .35rem 0 0; padding: 0; background: var(--surface);
+    border: 1px solid var(--line); border-radius: 6px; overflow: hidden;
+  }
+  .suggest li + li { border-top: 1px solid var(--line); }
+  .suggest button {
+    width: 100%; display: flex; justify-content: space-between; align-items: center;
+    padding: .5rem .8rem; background: none; border: 0; text-align: left;
+  }
+  .suggest button:hover, .suggest button:focus-visible { background: var(--bg); }
+
+  /* items */
+  .items { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+  .item {
+    display: grid; grid-template-columns: 2.5rem 1fr auto; align-items: center; gap: .15rem .75rem;
+    padding: .85rem 0; border-bottom: 1px solid var(--line);
+  }
+  .item.plain { grid-template-columns: 1fr; }
+  .item.row-simple { grid-template-columns: 2.5rem 1fr auto auto; align-items: center; }
+  .item.row-simple.plain { grid-template-columns: 1fr auto; }
+  .name { font-weight: 600; }
+  .status { color: var(--muted); font-size: .95rem; }
+  .status strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .actions { grid-column: 2 / -1; display: flex; gap: 1rem; align-items: center; margin-top: .35rem; }
+  .item.plain .actions { grid-column: 1 / -1; }
+  .btn.small { padding: .25rem .85rem; font-size: .95rem; }
+  .meta { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin: .25rem 0 1.5rem; flex-wrap: wrap; }
+  .meta .count { margin: 0; }
+  .sort { color: var(--muted); font-size: .95rem; }
+  .sort select { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: .2rem .4rem; margin-left: .35rem; }
+  .num { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .ar { font-family: "Amiri", "Traditional Arabic", serif; font-size: 1.6rem; line-height: 1.3; direction: rtl; }
+  .empty { color: var(--muted); padding: 1.5rem 0; }
+
+  footer { margin-top: 3rem; display: flex; gap: 1.25rem; color: var(--muted); font-size: .9rem; }
+
+  dialog {
+    background: var(--surface); color: var(--ink); border: 1px solid var(--line);
+    border-radius: 10px; padding: 1.5rem; width: min(24rem, 92vw);
+  }
+  dialog::backdrop { background: rgba(0,0,0,.4); }
+  dialog label { display: block; margin-bottom: 1rem; }
+  dialog input[type="text"], dialog select {
+    display: block; width: 100%; margin-top: .3rem; padding: .55rem .7rem;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 6px;
+  }
+  .row { display: flex; justify-content: flex-end; gap: .75rem; align-items: center; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Revision lists</h1>
+  <nav class="views" id="views" aria-label="Sections"></nav>
+  <nav class="tabs" id="tabs" aria-label="Your lists"></nav>
+  <main id="main"></main>
+  <footer>
+    <button class="linkbtn" id="export">Export backup</button>
+    <button class="linkbtn" id="import">Import backup</button>
+    <input type="file" id="file" accept="application/json" class="visually-hidden" tabindex="-1">
+  </footer>
+</div>
+
+<dialog id="newDialog">
+  <form method="dialog" id="newForm">
+    <label>List name
+      <input type="text" id="newName" required maxlength="60">
+    </label>
+    <label>List type
+      <select id="newType">
+        <option value="surah">Quran Surahs (pick from the 114)</option>
+        <option value="custom">Custom (type your own items)</option>
+      </select>
+    </label>
+    <div class="row">
+      <button type="button" class="linkbtn" id="newCancel">Cancel</button>
+      <button class="btn" type="submit">Create list</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(function () {
+  "use strict";
+
+  var SURAH_DATA = "Al-Fatihah|الفاتحة;Al-Baqarah|البقرة;Ali ‘Imran|آل عمران;An-Nisa’|النساء;Al-Ma’idah|المائدة;Al-An‘am|الأنعام;Al-A‘raf|الأعراف;Al-Anfal|الأنفال;At-Tawbah|التوبة;Yunus|يونس;Hud|هود;Yusuf|يوسف;Ar-Ra‘d|الرعد;Ibrahim|إبراهيم;Al-Hijr|الحجر;An-Nahl|النحل;Al-Isra’|الإسراء;Al-Kahf|الكهف;Maryam|مريم;Ta-Ha|طه;Al-Anbiya’|الأنبياء;Al-Hajj|الحج;Al-Mu’minun|المؤمنون;An-Nur|النور;Al-Furqan|الفرقان;Ash-Shu‘ara’|الشعراء;An-Naml|النمل;Al-Qasas|القصص;Al-‘Ankabut|العنكبوت;Ar-Rum|الروم;Luqman|لقمان;As-Sajdah|السجدة;Al-Ahzab|الأحزاب;Saba’|سبأ;Fatir|فاطر;Ya-Sin|يس;As-Saffat|الصافات;Sad|ص;Az-Zumar|الزمر;Ghafir|غافر;Fussilat|فصلت;Ash-Shura|الشورى;Az-Zukhruf|الزخرف;Ad-Dukhan|الدخان;Al-Jathiyah|الجاثية;Al-Ahqaf|الأحقاف;Muhammad|محمد;Al-Fath|الفتح;Al-Hujurat|الحجرات;Qaf|ق;Adh-Dhariyat|الذاريات;At-Tur|الطور;An-Najm|النجم;Al-Qamar|القمر;Ar-Rahman|الرحمن;Al-Waqi‘ah|الواقعة;Al-Hadid|الحديد;Al-Mujadilah|المجادلة;Al-Hashr|الحشر;Al-Mumtahanah|الممتحنة;As-Saff|الصف;Al-Jumu‘ah|الجمعة;Al-Munafiqun|المنافقون;At-Taghabun|التغابن;At-Talaq|الطلاق;At-Tahrim|التحريم;Al-Mulk|الملك;Al-Qalam|القلم;Al-Haqqah|الحاقة;Al-Ma‘arij|المعارج;Nuh|نوح;Al-Jinn|الجن;Al-Muzzammil|المزمل;Al-Muddaththir|المدثر;Al-Qiyamah|القيامة;Al-Insan|الإنسان;Al-Mursalat|المرسلات;An-Naba’|النبأ;An-Nazi‘at|النازعات;‘Abasa|عبس;At-Takwir|التكوير;Al-Infitar|الانفطار;Al-Mutaffifin|المطففين;Al-Inshiqaq|الانشقاق;Al-Buruj|البروج;At-Tariq|الطارق;Al-A‘la|الأعلى;Al-Ghashiyah|الغاشية;Al-Fajr|الفجر;Al-Balad|البلد;Ash-Shams|الشمس;Al-Layl|الليل;Ad-Duha|الضحى;Ash-Sharh|الشرح;At-Tin|التين;Al-‘Alaq|العلق;Al-Qadr|القدر;Al-Bayyinah|البينة;Az-Zalzalah|الزلزلة;Al-‘Adiyat|العاديات;Al-Qari‘ah|القارعة;At-Takathur|التكاثر;Al-‘Asr|العصر;Al-Humazah|الهمزة;Al-Fil|الفيل;Quraysh|قريش;Al-Ma‘un|الماعون;Al-Kawthar|الكوثر;Al-Kafirun|الكافرون;An-Nasr|النصر;Al-Masad|المسد;Al-Ikhlas|الإخلاص;Al-Falaq|الفلق;An-Nas|الناس";
+  var SURAHS = SURAH_DATA.split(";").map(function (s, i) {
+    var p = s.split("|");
+    return { n: i + 1, en: p[0], ar: p[1] };
+  });
+
+  var KEY = "revision-lists-v1";
+  var state = load();
+
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (raw) {
+        var s = JSON.parse(raw);
+        if (s && Array.isArray(s.lists) && s.lists.length) return s;
+      }
+    } catch (e) { /* storage unavailable or corrupted: start fresh */ }
+    var first = { id: uid(), name: "Quran revision", type: "surah", items: [] };
+    return { lists: [first], activeId: first.id };
+  }
+
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); }
+    catch (e) { /* ignore: app still works for this session */ }
+  }
+
+  function active() {
+    return state.lists.find(function (l) { return l.id === state.activeId; }) || state.lists[0];
+  }
+
+  function norm(s) {
+    return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+  }
+
+  function el(tag, props, kids) {
+    var node = document.createElement(tag);
+    if (props) Object.keys(props).forEach(function (k) {
+      if (k === "text") node.textContent = props[k];
+      else if (k.slice(0, 2) === "on") node.addEventListener(k.slice(2), props[k]);
+      else node.setAttribute(k, props[k]);
+    });
+    (kids || []).forEach(function (c) { node.appendChild(c); });
+    return node;
+  }
+
+  /* ---------- rendering ---------- */
+
+  var viewsEl = document.getElementById("views");
+  var tabsEl = document.getElementById("tabs");
+  var mainEl = document.getElementById("main");
+  var pendingFocus = false;
+
+  function view() { return state.view === "revision" ? "revision" : "lists"; }
+
+  function setView(v) { state.view = v; save(); render(); }
+
+  function render() {
+    renderViews();
+    renderTabs();
+    if (view() === "revision") renderRevision(); else renderLists();
+    if (pendingFocus) {
+      var inp = document.getElementById("addInput");
+      if (inp) inp.focus();
+      pendingFocus = false;
+    }
+  }
+
+  function renderViews() {
+    viewsEl.textContent = "";
+    [["lists", "Lists"], ["revision", "Revision"]].forEach(function (v) {
+      var b = el("button", { class: "view-btn", type: "button", text: v[1] });
+      if (view() === v[0]) b.setAttribute("aria-current", "true");
+      b.addEventListener("click", function () { setView(v[0]); });
+      viewsEl.appendChild(b);
+    });
+  }
+
+  function renderTabs() {
+    tabsEl.textContent = "";
+    var cur = active();
+    state.lists.forEach(function (l) {
+      var b = el("button", { class: "tab", text: l.name, type: "button" });
+      if (l.id === cur.id) b.setAttribute("aria-current", "true");
+      b.addEventListener("click", function () { state.activeId = l.id; save(); render(); });
+      tabsEl.appendChild(b);
+    });
+    if (view() === "lists") {
+      tabsEl.appendChild(el("button", {
+        class: "tab new", type: "button", text: "New list",
+        onclick: function () { document.getElementById("newName").value = ""; document.getElementById("newDialog").showModal(); document.getElementById("newName").focus(); }
+      }));
+    }
+  }
+
+  function countText(list) {
+    return list.type === "surah"
+      ? list.items.length + " of 114 Surahs"
+      : list.items.length + (list.items.length === 1 ? " item" : " items");
+  }
+
+  /* ----- Lists view: create lists, add and remove items ----- */
+
+  function renderLists() {
+    var list = active();
+    var isSurah = list.type === "surah";
+    mainEl.textContent = "";
+
+    mainEl.appendChild(el("div", { class: "head" }, [
+      el("h2", { text: list.name }),
+      el("button", { class: "linkbtn danger", type: "button", text: "Delete list", onclick: function () { deleteList(list); } })
+    ]));
+    mainEl.appendChild(el("p", { class: "count", text: countText(list) }));
+
+    /* add box */
+    var add = el("div", { class: "add" });
+    var input = el("input", {
+      type: "text", id: "addInput", autocomplete: "off",
+      placeholder: isSurah ? "Type a Surah name or number" : "Type an item name",
+      "aria-label": isSurah ? "Surah to add" : "Item to add"
+    });
+    var form = el("form", null, [input, el("button", { class: "btn", type: "submit", text: "Add" })]);
+    var suggest = el("ul", { class: "suggest", hidden: "" });
+    add.appendChild(form);
+    add.appendChild(suggest);
+    mainEl.appendChild(add);
+
+    function matches() {
+      var raw = input.value.trim();
+      if (!isSurah || !raw) return [];
+      var q = norm(raw);
+      var have = {};
+      list.items.forEach(function (it) { have[it.key] = true; });
+      var out = SURAHS.filter(function (s) {
+        if (have[s.n]) return false;
+        return String(s.n) === raw || s.ar.indexOf(raw) !== -1 || (q && norm(s.en).indexOf(q) !== -1);
+      });
+      out.sort(function (a, b) {
+        var as = norm(a.en).indexOf(q) === 0 ? 0 : 1, bs = norm(b.en).indexOf(q) === 0 ? 0 : 1;
+        return as - bs || a.n - b.n;
+      });
+      return out.slice(0, 6);
+    }
+
+    function paintSuggestions() {
+      suggest.textContent = "";
+      var m = matches();
+      suggest.hidden = !m.length;
+      m.forEach(function (s) {
+        var b = el("button", { type: "button" }, [
+          el("span", { text: s.n + ". " + s.en }),
+          el("span", { class: "ar", lang: "ar", text: s.ar })
+        ]);
+        b.addEventListener("click", function () { addSurah(list, s); });
+        suggest.appendChild(el("li", null, [b]));
+      });
+    }
+
+    input.addEventListener("input", paintSuggestions);
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      if (isSurah) {
+        var m = matches();
+        if (m.length) addSurah(list, m[0]);
+      } else {
+        addCustom(list, input.value);
+      }
+    });
+
+    if (!list.items.length) {
+      mainEl.appendChild(el("p", {
+        class: "empty",
+        text: isSurah ? "No Surahs yet. Start typing a name or number above to add one." : "No items yet. Type a name above to add one."
+      }));
+      return;
+    }
+    var ul = el("ul", { class: "items" });
+    var items = list.items.slice();
+    if (isSurah) items.sort(function (x, y) { return x.key - y.key; });
+    items.forEach(function (it) {
+      var li = el("li", { class: "item row-simple" + (isSurah ? "" : " plain") });
+      if (isSurah) li.appendChild(el("span", { class: "num", text: String(it.key) }));
+      li.appendChild(el("span", { class: "name", text: it.name }));
+      if (isSurah) li.appendChild(el("span", { class: "ar", lang: "ar", text: it.arabic }));
+      li.appendChild(el("button", {
+        class: "linkbtn", type: "button", text: "Remove",
+        "aria-label": "Remove " + it.name,
+        onclick: function () { removeItem(list, it.id); }
+      }));
+      ul.appendChild(li);
+    });
+    mainEl.appendChild(ul);
+  }
+
+  /* ----- Revision view: open a list, mark as revised, see the counter ----- */
+
+  function renderRevision() {
+    var list = active();
+    var isSurah = list.type === "surah";
+    mainEl.textContent = "";
+
+    mainEl.appendChild(el("div", { class: "head" }, [el("h2", { text: list.name })]));
+
+    if (!list.items.length) {
+      mainEl.appendChild(el("p", { class: "count", text: countText(list) }));
+      mainEl.appendChild(el("p", { class: "empty" }, [
+        document.createTextNode("This list has no items yet. "),
+        el("button", { class: "linkbtn", type: "button", text: "Add some in the Lists tab", onclick: function () { setView("lists"); } })
+      ]));
+      return;
+    }
+
+    var sortSel = el("select", { id: "sortSel" }, [
+      el("option", { value: "default", text: isSurah ? "Mushaf order" : "Order added" }),
+      el("option", { value: "stale", text: "Longest since revised" })
+    ]);
+    sortSel.value = list.sort === "stale" ? "stale" : "default";
+    sortSel.addEventListener("change", function () { list.sort = sortSel.value; save(); render(); });
+    mainEl.appendChild(el("div", { class: "meta" }, [
+      el("p", { class: "count", text: countText(list) }),
+      el("label", { class: "sort" }, [document.createTextNode("Order by"), sortSel])
+    ]));
+
+    var ul = el("ul", { class: "items" });
+    var items = list.items.slice();
+    if (list.sort === "stale") {
+      items.sort(function (x, y) {
+        return baseline(x) - baseline(y) || (isSurah ? x.key - y.key : x.added - y.added);
+      });
+    } else if (isSurah) {
+      items.sort(function (x, y) { return x.key - y.key; });
+    }
+    items.forEach(function (it) {
+      var li = el("li", { class: "item" + (isSurah ? "" : " plain") });
+      if (isSurah) li.appendChild(el("span", { class: "num", text: String(it.key) }));
+      li.appendChild(el("div", null, [
+        el("div", { class: "name", text: it.name }),
+        statusEl(it)
+      ]));
+      if (isSurah) li.appendChild(el("span", { class: "ar", lang: "ar", text: it.arabic }));
+
+      var actions = el("div", { class: "actions" });
+      var doneToday = it.lastRevised && daysSince(it.lastRevised) === 0;
+      if (doneToday) {
+        actions.appendChild(el("button", {
+          class: "linkbtn", type: "button", text: "Undo",
+          "aria-label": "Undo revised for " + it.name,
+          onclick: function () { undoRevised(it); }
+        }));
+      } else {
+        actions.appendChild(el("button", {
+          class: "btn small", type: "button", text: "Revised",
+          "aria-label": "Mark " + it.name + " as revised today",
+          onclick: function () { markRevised(it); }
+        }));
+      }
+      li.appendChild(actions);
+      ul.appendChild(li);
+    });
+    mainEl.appendChild(ul);
+  }
+
+  /* ---------- day counting ---------- */
+
+  function dayStart(t) { var d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); }
+  function daysSince(t) { return Math.round((dayStart(Date.now()) - dayStart(t)) / 86400000); }
+  function baseline(it) { return it.lastRevised || it.added; }
+  function plural(n) { return n + (n === 1 ? " day" : " days"); }
+
+  function statusEl(it) {
+    var box = el("div", { class: "status" });
+    if (it.lastRevised) {
+      var n = daysSince(it.lastRevised);
+      if (n === 0) {
+        box.textContent = "Revised today";
+      } else {
+        box.appendChild(el("strong", { text: plural(n) }));
+        box.appendChild(document.createTextNode(" since revised"));
+      }
+    } else {
+      var a = daysSince(it.added);
+      box.textContent = "Not revised yet. Added " + (a === 0 ? "today" : plural(a) + " ago") + ".";
+    }
+    return box;
+  }
+
+  function markRevised(it) {
+    it.prev = it.lastRevised || null;
+    it.lastRevised = Date.now();
+    save(); render();
+  }
+
+  function undoRevised(it) {
+    it.lastRevised = it.prev || null;
+    delete it.prev;
+    save(); render();
+  }
+
+  /* ---------- actions ---------- */
+
+  function addSurah(list, s) {
+    if (list.items.some(function (i) { return i.key === s.n; })) return;
+    list.items.push({ id: uid(), key: s.n, name: s.en, arabic: s.ar, added: Date.now(), lastRevised: null });
+    save(); pendingFocus = true; render();
+  }
+
+  function addCustom(list, text) {
+    var name = text.trim();
+    if (!name) return;
+    var key = name.toLowerCase();
+    if (list.items.some(function (i) { return i.key === key; })) return;
+    list.items.push({ id: uid(), key: key, name: name, added: Date.now(), lastRevised: null });
+    save(); pendingFocus = true; render();
+  }
+
+  function removeItem(list, id) {
+    list.items = list.items.filter(function (i) { return i.id !== id; });
+    save(); render();
+  }
+
+  function deleteList(list) {
+    if (!confirm("Delete “" + list.name + "” and its " + list.items.length + " items? This can’t be undone.")) return;
+    state.lists = state.lists.filter(function (l) { return l.id !== list.id; });
+    if (!state.lists.length) {
+      state.lists.push({ id: uid(), name: "Quran revision", type: "surah", items: [] });
+    }
+    state.activeId = state.lists[0].id;
+    save(); render();
+  }
+
+  /* new list dialog */
+  var dlg = document.getElementById("newDialog");
+  document.getElementById("newCancel").addEventListener("click", function () { dlg.close(); });
+  document.getElementById("newForm").addEventListener("submit", function () {
+    var name = document.getElementById("newName").value.trim();
+    if (!name) return;
+    var l = { id: uid(), name: name, type: document.getElementById("newType").value, items: [] };
+    state.lists.push(l);
+    state.activeId = l.id;
+    save(); pendingFocus = true; render();
+  });
+
+  /* backup */
+  document.getElementById("export").addEventListener("click", function () {
+    var blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "revision-lists-backup.json";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  });
+  var fileInput = document.getElementById("file");
+  document.getElementById("import").addEventListener("click", function () { fileInput.click(); });
+  fileInput.addEventListener("change", function () {
+    var f = fileInput.files[0];
+    if (!f) return;
+    var r = new FileReader();
+    r.onload = function () {
+      try {
+        var s = JSON.parse(r.result);
+        if (!s || !Array.isArray(s.lists) || !s.lists.length) throw new Error("bad file");
+        if (!confirm("Replace everything in this browser with the backup?")) return;
+        state = s;
+        if (!state.activeId) state.activeId = state.lists[0].id;
+        save(); render();
+      } catch (e) {
+        alert("That file isn’t a valid backup.");
+      }
+      fileInput.value = "";
+    };
+    r.readAsText(f);
+  });
+
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden && document.activeElement.tagName !== "INPUT") render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
